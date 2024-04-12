@@ -1,113 +1,215 @@
-import Image from "next/image";
+"use client";
+import React, { useState, useEffect } from 'react';
+import GridProductos from './(components)/gridproductos';
+import Cesta from './(components)/cesta';
+import products from './assets/data/products.json';
+import categories from './assets/data/categories.json';
 
-export default function Home() {
+const TiendaPage = () => {
+
+  // Estados
+  const [productsData, setProductsData] = useState<Product[]>([]);
+  const [categoriesData, setCategoriesData] = useState<Category[]>([]);
+  const [categoria, setCategoria] = useState<string>('');
+  const [search, setSearch] = useState('');
+  const [cesta, setCesta] = useState<CestaItem[]>([]);
+  const [total, setTotal] = useState(0);
+
+
+  useEffect(() => {
+    const storedProducts = localStorage.getItem('products');
+    const storedCategories = localStorage.getItem('categories');
+
+    if (storedProducts) {
+      setProductsData(JSON.parse(storedProducts));
+    } else {
+      console.log('No hay productos en el storage');
+      localStorage.setItem('products', JSON.stringify(products));
+      setProductsData(products);
+    }
+
+    if (storedCategories) {
+      setCategoriesData(JSON.parse(storedCategories));
+    } else {
+      console.log('No hay categorías en el storage');
+      localStorage.setItem('categories', JSON.stringify(categories));
+      setCategoriesData(categories);
+    }
+
+
+
+  }, []);
+
+  useEffect(() => {
+    // Filtrado de productos por nombre
+    if (search !== '') {
+      const filteredProducts = productsData.filter(product =>
+        product.nombre.toLowerCase().includes(search.toLowerCase())
+      );
+      setProductsData(filteredProducts);
+    } else {
+      const storedProducts = localStorage.getItem('products');
+      if (storedProducts) {
+        setProductsData(JSON.parse(storedProducts));
+      }
+    }
+
+  }, [search]);
+
+  useEffect(() => {
+    // Filtrado de productos por categoría
+    if (categoria !== '') {
+      const filteredProducts = productsData.filter(product =>
+        product.categoria.toLowerCase().includes(categoria.toLowerCase())
+      );
+      setProductsData(filteredProducts);
+    } else {
+      const storedProducts = localStorage.getItem('products');
+      if (storedProducts) {
+        setProductsData(JSON.parse(storedProducts));
+      }
+    }
+  }, [categoria]);
+
+  useEffect(() => {
+    // Cálculo del total de la cesta
+    const newTotal = cesta.reduce((acc, product) => acc + product.precio * product.cantidad, 0);
+    setTotal(newTotal);
+  }, [cesta]);
+
+
+  // Funciones
+  const agregarProducto = (product: Product) => {
+    if (product.stock === 0) {
+      alert('Se ha agotado el stock de este producto');
+      return;
+    }
+
+    const productIndex = cesta.findIndex(item => item.id === product.id);
+
+    if (productIndex !== -1) {
+      setCesta(cesta.map(item => {
+        if (item.id === product.id) {
+          return { ...item, cantidad: item.cantidad + 1 };
+        }
+        return item;
+      }
+      ));
+
+      const productDataIndex = productsData.findIndex(item => item.id === product.id);
+      productsData[productDataIndex].stock--;
+      return;
+    } else {
+      setCesta([...cesta, { ...product, cantidad: 1 }]);
+
+      const productDataIndex = productsData.findIndex(item => item.id === product.id);
+      productsData[productDataIndex].stock--;
+    }
+
+
+  };
+
+  const eliminarProducto = (product: Product) => {
+    const productIndex = cesta.findIndex(item => item.id === product.id);
+
+    if (productIndex !== -1) {
+      if (cesta[productIndex].cantidad === 1) {
+        setCesta(cesta.filter(item => item.id !== product.id));
+      } else {
+        setCesta(cesta.map(item => {
+          if (item.id === product.id) {
+            return { ...item, cantidad: item.cantidad - 1 };
+          }
+          return item;
+        }));
+      }
+
+      const productDataIndex = productsData.findIndex(item => item.id === product.id);
+      productsData[productDataIndex].stock++;
+    }
+
+
+  };
+
+  const vaciarCarrito = () => {
+    // Devuelve el stock de los productos
+    cesta.forEach(product => {
+      const productDataIndex = productsData.findIndex(item => item.id === product.id);
+      productsData[productDataIndex].stock += product.cantidad;
+    });
+
+    setCesta([]);
+  };
+
+  const comprarProductos = () => {
+
+    console.log('Comprando productos', cesta);
+    console.log('Total:', total);
+    console.log('productos con stock', productsData)
+
+    localStorage.setItem('products', JSON.stringify(productsData));
+
+    if (localStorage.getItem('compra')) {
+      localStorage.removeItem('compra');
+    }
+
+    localStorage.setItem('compra', JSON.stringify(cesta));
+    setCesta([]);
+
+    setTimeout(() => {
+      window.location.href = '/orden';
+    }, 400);
+
+  };
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:size-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+    <div className="flex h-[90vh]">
+      <div className="w-1/2 mx-auto p-5 overflow-y-scroll">
+        <select
+          className="w-full p-2 border border-gray-300 rounded-md text-gray-900"
+          value={categoria}
+          onChange={e => setCategoria(e.target.value)}
+        >
+          <option value="">Todas las categorías</option>
+          {categoriesData.map(category => (
+            <option key={category.id} value={category.nombre}>
+              {category.nombre}
+            </option>
+          ))}
+        </select>
+        <input
+          type="text"
+          className="w-full p-2 border border-gray-300 rounded-md text-gray-900 mt-2"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Buscar producto"
+        />
+        <div className="grid grid-cols-2 gap-4 mt-4">
+          {productsData.length ? (
+            productsData.map(product => (
+              <GridProductos
+                key={product.id}
+                product={product}
+                agregar={agregarProducto}
+              />
+            ))
+          ) : (
+            <p className="text-center mt-12">No hay productos</p>
+          )}
         </div>
       </div>
-
-      <div className="relative z-[-1] flex place-items-center before:absolute before:h-[300px] before:w-full before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 sm:before:w-[480px] sm:after:w-[240px] before:lg:h-[360px]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
+      <div className="w-1/2 mx-auto h-[90vh] bg-gray-50 border-l-2 p-5">
+        <h2 className="text-2xl font-bold">Cesta de la compra</h2>
+        <Cesta
+          productos={cesta}
+          total={total}
+          eliminar={eliminarProducto}
+          vaciar={vaciarCarrito}
+          comprar={comprarProductos}
         />
       </div>
-
-      <div className="mb-32 grid text-center lg:mb-0 lg:w-full lg:max-w-5xl lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-balance text-sm opacity-50">
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
+    </div>
   );
-}
+};
+
+export default TiendaPage;
